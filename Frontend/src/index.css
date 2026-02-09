@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #f8fafc;
+  --color-primary-100: #f1f5f9;
+  --color-primary-200: #e2e8f0;
+  --color-primary-300: #cbd5e1;
+  --color-primary-400: #94a3b8;
+  --color-primary-500: #64748b;
+  --color-primary-600: #475569;
+  --color-primary-700: #334155;
+  --color-primary-800: #1e293b;
+  --color-primary-900: #0f172a;
+
+  --color-brand-light: #eff6ff;
+  --color-brand-blue: #3b82f6;
+  --color-brand-blue-hover: #2563eb;
+  --color-brand-orange: #f59e0b;
+
+  --color-background: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8fafc;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    @apply bg-[var(--color-background)] text-slate-800 font-sans antialiased min-h-screen selection:bg-brand-blue/30;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-surface/90 backdrop-blur-lg border border-slate-100 shadow-sm;
+  }
+
+  .glass-card {
+    @apply bg-surface border border-slate-100 shadow-sm rounded-2xl p-6 transition-all duration-300 hover:border-slate-200 hover:shadow-md;
+  }
+
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-brand-blue to-blue-500;
+  }
+}
