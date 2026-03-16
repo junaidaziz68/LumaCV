@@ -1,0 +1,16 @@
+# FastAPI
+fastapi>=0.115.0
+uvicorn>=0.30.6
+python-multipart>=0.0.9
+
+# AI
+langchain>=0.3.0
+langchain-google-genai>=2.0.0
+langchain-core>=0.3.0
+
+# Document Parsing
+pypdf>=5.0.0
+
+# General
+pydantic>=2.9.2
+python-dotenv>=1.0.1
