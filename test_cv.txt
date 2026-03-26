@@ -1,0 +1,12 @@
+# Jane Doe
+
+## Experience
+Software Engineer at TechCorp, 2020 - Present
+- Developed scalable web applications using React and Node.js
+- Maintained legacy Java codebase
+
+## Skills
+- JavaScript
+- Python
+- React
+- SQL
