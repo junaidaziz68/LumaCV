@@ -10,7 +10,6 @@ import StatCard from './components/StatCard';
 import RadialProgress from './components/RadialProgress';
 import LearningPath from './components/LearningPath';
 import ChatbotWidget from './components/ChatbotWidget';
-import CalorieCalculator from './components/CalorieCalculator';
 
 // Pages
 import JobMatchesPage from './pages/JobMatchesPage';
@@ -20,26 +19,6 @@ import ProfilePage from './pages/ProfilePage';
 import AuthScreen from './components/AuthScreen';
 
 function DashboardContent({ file, isAnalyzing, handleFileUpload, results }) {
-  const [showCalculator, setShowCalculator] = useState(!results && !file);
-
-  // If there's no data and they haven't hidden the calculator yet, show onboarding calculator
-  if (showCalculator && !results && !isAnalyzing) {
-    return (
-      <div className="flex flex-col gap-8">
-        <CalorieCalculator onComplete={() => setShowCalculator(false)} />
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm max-w-4xl mx-auto w-full flex items-center justify-between group cursor-pointer hover:border-brand-blue transition-all" onClick={() => setShowCalculator(false)}>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">Ready to boost your Career instead?</h3>
-            <p className="text-sm text-slate-500">Skip the health goals and jump straight to the CV Analyzer</p>
-          </div>
-          <div className="text-brand-blue font-bold group-hover:translate-x-2 transition-transform">
-            Go to Dashboard &rarr;
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <>
