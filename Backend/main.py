@@ -3,16 +3,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import os
+import io
+import json
 from dotenv import load_dotenv
 
-# Import the agent logic (we will create this next)
+# FastAPI security and router dependencies
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends, status
+from sqlalchemy.orm import Session
+import jwt
+
+# Database and Analysis Logic
+from database import Base, engine, get_db, User
+from auth import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
 from agents import analyze_cv_with_agents
+from fallback_engine import extract_fallback_analysis
+from pypdf import PdfReader
 
 load_dotenv()
 
+# Create tables in sqlite file specifically on launch (fail-safe)
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="CV Analyzer API")
 
-# Configure CORS so the React Frontend can communicate with us
+# Setup CORS for the React frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -47,85 +62,115 @@ class AnalysisResult(BaseModel):
     missingSkills: List[MissingSkill]
     recommendations: List[Recommendation]
 
-@app.post("/api/analyze-cv", response_model=AnalysisResult)
-async def analyze_cv(file: UploadFile = File(...)):
-    print(f"Received file: {file.filename}")
-    if not file.filename.endswith(('.pdf', '.txt', '.docx', '.doc')):
-        print(f"Rejected file because extension is invalid: {file.filename}")
-        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF, TXT, DOC, and DOCX are supported.")
+# ==== AUTHENTICATION SCHEMAS & ENDPOINTS ====
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+        
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@app.post("/api/register", response_model=Token)
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email is already registered")
     
-    # Check for API Key early
+    hashed_password = get_password_hash(user.password)
+    new_user = User(name=user.name, email=user.email, hashed_password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    access_token = create_access_token(data={"sub": new_user.email, "name": new_user.name})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/api/login", response_model=Token)
+def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # Use OAuth2 form 'username' mapping to our 'email' column
+    db_user = db.query(User).filter(User.email == form_data.username).first()
+    if not db_user or not verify_password(form_data.password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token = create_access_token(data={"sub": db_user.email, "name": db_user.name})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/me")
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return {"name": current_user.name, "email": current_user.email}
+
+@app.get("/api/dashboard")
+def get_dashboard(current_user: User = Depends(get_current_user)):
+    if current_user.cv_data:
+        return json.loads(current_user.cv_data)
+    return None
+
+@app.post("/api/analyze-cv", response_model=AnalysisResult)
+async def analyze_cv(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    print(f"Received file: {file.filename}")
+    
+    # Check for API Key
     if not os.getenv("GEMINI_API_KEY"):
          raise HTTPException(status_code=500, detail="Gemini API Key is missing. Please add it to the .env file.")
 
     try:
-        # Save file temporarily or read it into memory
+        # Read the uploaded file
         contents = await file.read()
         
-        # Call our Agentic AI workflow to process the contents
-        result = await analyze_cv_with_agents(contents, file.filename)
-        return result
-        
-    except Exception as e:
-        print(f"LLM AI failed (likely quota error): {e}. Returning high-quality mock data for demonstration.")
-        # Simulate processing time for realism during fallback
-        import asyncio
-        await asyncio.sleep(2.5)
-        
-        # Return highly realistic mock data tailored for a software engineering CV
-        return AnalysisResult(
-            score=82,
-            topSkills=["React", "Node.js", "Python", "JavaScript", "SQL", "Git"],
-            missingSkills=[
-                MissingSkill(
-                    skill="Cloud Architecture (AWS/Azure)",
-                    courseName="AWS Certified Solutions Architect - Associate 2024",
-                    platform="Udemy",
-                    link="https://www.udemy.com/course/aws-certified-solutions-architect-associate-saa-c03/"
-                ),
-                MissingSkill(
-                    skill="Advanced Machine Learning",
-                    courseName="Machine Learning Specialization",
-                    platform="Coursera",
-                    link="https://www.coursera.org/specializations/machine-learning-introduction"
-                ),
-                MissingSkill(
-                    skill="Data Science & Analytics",
-                    courseName="Intro to Machine Learning",
-                    platform="Kaggle",
-                    link="https://www.kaggle.com/learn/intro-to-machine-learning"
-                )
-            ],
-            recommendations=[
-                Recommendation(
-                    role="Senior Full Stack Engineer", 
-                    match=95, 
-                    company="Stripe", 
-                    location="Remote (US)", 
-                    salary="$160k - $210k", 
-                    type="Full-time", 
-                    logo="https://api.dicebear.com/7.x/initials/svg?seed=St"
-                ),
-                Recommendation(
-                    role="Frontend React Developer", 
-                    match=88, 
-                    company="Vercel", 
-                    location="New York, NY", 
-                    salary="$130k - $160k", 
-                    type="Full-time", 
-                    logo="https://api.dicebear.com/7.x/initials/svg?seed=Vr"
-                ),
-                Recommendation(
-                    role="Data Engineer", 
-                    match=72, 
-                    company="DataDog", 
-                    location="San Francisco, CA", 
-                    salary="$145k - $185k", 
-                    type="Contract", 
-                    logo="https://api.dicebear.com/7.x/initials/svg?seed=DD"
-                )
-            ]
-        )
+        # Extract raw text for the fallback mechanism
+        extracted_text = ""
+        try:
+            if file.filename.endswith(".pdf"):
+                pdf_reader = PdfReader(io.BytesIO(contents))
+                for page in pdf_reader.pages:
+                    extracted_text += page.extract_text() + "\n"
+            else:
+                extracted_text = contents.decode("utf-8", errors="ignore")
+        except:
+            extracted_text = str(contents)
+
+        try:
+            # Process the file via AI
+            result = await analyze_cv_with_agents(contents, file.filename)
+            result_dict = result.dict() if hasattr(result, "dict") else result
+            current_user.cv_data = json.dumps(result_dict)
+            db.commit()
+            return result
+            
+        except Exception as ai_e:
+            import traceback
+            traceback.print_exc()
+            print(f"API failed. Falling back to local engine. Error: {ai_e}")
+            fallback_data = extract_fallback_analysis(extracted_text)
+            current_user.cv_data = json.dumps(fallback_data)
+            db.commit()
+            return AnalysisResult(**fallback_data)
+            
+    except Exception as general_error:
+        print(f"Critical System Error: {general_error}")
+        raise HTTPException(status_code=500, detail="A critical server error occurred.")
 
 class ChatRequest(BaseModel):
     message: str

@@ -127,7 +127,7 @@ const JobMatchesPage = ({ results }) => {
                     <div className="bg-gradient-to-br from-brand-blue to-blue-700 rounded-2xl p-6 text-white shadow-lg shadow-brand-blue/20">
                         <Briefcase className="w-8 h-8 text-white/80 mb-4" />
                         <h4 className="font-bold text-lg mb-2">Ready to apply?</h4>
-                        <p className="text-white/80 text-sm mb-6">Let CareerHub's AI completely generate tailored cover letters for each of these positions.</p>
+                        <p className="text-white/80 text-sm mb-6">Let LumaCV's AI completely generate tailored cover letters for each of these positions.</p>
                         <button className="w-full py-2.5 bg-white text-brand-blue rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors">
                             Generate Cover Letters
                         </button>

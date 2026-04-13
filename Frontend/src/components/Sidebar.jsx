@@ -9,7 +9,7 @@ const Sidebar = () => {
                 <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
                     <GraduationCap className="w-5 h-5" />
                 </div>
-                <span className="font-bold text-xl text-slate-800 tracking-tight">CareerHub</span>
+                <span className="font-bold text-xl text-slate-800 tracking-tight">LumaCV</span>
             </div>
 
             <nav className="flex flex-col gap-2 px-4 flex-1">

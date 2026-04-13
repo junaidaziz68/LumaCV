@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -10,14 +10,37 @@ import StatCard from './components/StatCard';
 import RadialProgress from './components/RadialProgress';
 import LearningPath from './components/LearningPath';
 import ChatbotWidget from './components/ChatbotWidget';
+import CalorieCalculator from './components/CalorieCalculator';
 
 // Pages
 import JobMatchesPage from './pages/JobMatchesPage';
 import CoursesPage from './pages/CoursesPage';
 import TrackerPage from './pages/TrackerPage';
 import ProfilePage from './pages/ProfilePage';
+import AuthScreen from './components/AuthScreen';
 
 function DashboardContent({ file, isAnalyzing, handleFileUpload, results }) {
+  const [showCalculator, setShowCalculator] = useState(!results && !file);
+
+  // If there's no data and they haven't hidden the calculator yet, show onboarding calculator
+  if (showCalculator && !results && !isAnalyzing) {
+    return (
+      <div className="flex flex-col gap-8">
+        <CalorieCalculator onComplete={() => setShowCalculator(false)} />
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm max-w-4xl mx-auto w-full flex items-center justify-between group cursor-pointer hover:border-brand-blue transition-all" onClick={() => setShowCalculator(false)}>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">Ready to boost your Career instead?</h3>
+            <p className="text-sm text-slate-500">Skip the health goals and jump straight to the CV Analyzer</p>
+          </div>
+          <div className="text-brand-blue font-bold group-hover:translate-x-2 transition-transform">
+            Go to Dashboard &rarr;
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       {/* Top Grid Area: Upload + Matches + Skills */}
@@ -67,9 +90,59 @@ function DashboardContent({ file, isAnalyzing, handleFileUpload, results }) {
 }
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [isAppLoading, setIsAppLoading] = useState(true);
   const [file, setFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('luma_token');
+    if (token) {
+      fetch('http://localhost:8000/api/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Invalid token');
+        })
+        .then(data => {
+          setUser(data);
+          return fetch('http://localhost:8000/api/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        })
+        .then(res => {
+          if (res.ok) return res.json();
+          return null;
+        })
+        .then(dashboardData => {
+          if (dashboardData) {
+            setResults(dashboardData);
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('luma_token');
+        })
+        .finally(() => setIsAppLoading(false));
+    } else {
+      setIsAppLoading(false);
+    }
+  }, []);
+
+  if (isAppLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Checking session...</div>;
+  }
+
+  if (!user) {
+    return <AuthScreen onLogin={setUser} />;
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("luma_token");
+    setUser(null);
+    setResults(null);
+  };
 
   const handleFileUpload = async (selectedFile) => {
     setFile(selectedFile);
@@ -79,21 +152,24 @@ function App() {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await fetch('http://localhost:8000/api/analyze-cv', {
-        method: 'POST',
+      const token = localStorage.getItem('luma_token');
+      const response = await fetch("http://localhost:8000/api/analyze-cv", {
+        method: "POST",
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Analysis failed");
+        const errorData = await response.json().catch(() => null);
+        const errorMsg = errorData?.detail || await response.text();
+        throw new Error(errorMsg || "Analysis failed");
       }
 
       const data = await response.json();
       setResults(data);
     } catch (error) {
       console.error("Error analyzing CV:", error);
-      alert("Failed to analyze CV. Ensure the backend and API Key are ready.");
+      alert(`Analysis Failed: ${error.message}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -105,7 +181,7 @@ function App() {
         <Sidebar />
 
         <main className="flex-1 p-8 max-w-7xl mx-auto z-10 w-full">
-          <TopNav />
+          <TopNav userName={user.name} />
 
           <Routes>
             <Route path="/" element={
@@ -119,7 +195,7 @@ function App() {
             <Route path="/jobs" element={<JobMatchesPage results={results} />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/tracker" element={<TrackerPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile" element={<ProfilePage user={user} onLogout={handleLogout} />} />
           </Routes>
 
           {/* Background decorative waves/glow */}

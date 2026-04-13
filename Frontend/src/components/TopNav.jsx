@@ -1,11 +1,11 @@
 import React from 'react';
 import { Mail, Bell, TriangleAlert, User } from 'lucide-react';
 
-const TopNav = () => {
+const TopNav = ({ userName }) => {
     return (
         <header className="flex justify-between items-center w-full mb-8">
             <div>
-                <h1 className="text-3xl font-bold text-slate-800 mb-1">Welcome Back, Alex!</h1>
+                <h1 className="text-3xl font-bold text-slate-800 mb-1">Welcome Back, {userName ? userName.split(' ')[0] : 'User'}!</h1>
                 <p className="text-slate-500 text-sm">Let's Boost Your Career Today!</p>
             </div>
 

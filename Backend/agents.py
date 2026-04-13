@@ -25,9 +25,9 @@ class SkillsAnalysisOutput(BaseModel):
     missingSkills: List[MissingSkill] = Field(description="A targeted list of 3-5 critical skills or certifications the candidate is missing for senior roles, complete with course recommendations.")
     recommendations: List[Recommendation] = Field(description="Exactly 3 top role recommendations with match percentages.")
 
-# The Agentic Workflow Function
+# Analyze the CV text
 async def analyze_cv_with_agents(file_content: bytes, filename: str):
-    # STEP 1: Text Extraction (Data Prep)
+    # Extract text based on file format
     extracted_text = ""
     if filename.endswith(".pdf"):
         pdf_reader = PdfReader(io.BytesIO(file_content))
@@ -38,80 +38,42 @@ async def analyze_cv_with_agents(file_content: bytes, filename: str):
     else:
         extracted_text = file_content.decode("utf-8", errors="ignore")
 
-    # Initialize the LLM for all agents
+    # Set up the LLM model
     llm = ChatGoogleGenerativeAI(temperature=0.3, model="gemini-2.0-flash")
     
-    # ==========================================
-    # AGENT 1: The "Critic" Agent
-    # Focuses solely on finding technical gaps
-    # ==========================================
-    print("[Agent Workflow] -> Analyst Agent is reviewing the CV...")
-    critic_prompt = PromptTemplate.from_template(
-        "You are a strict Technical Screener. Analyze this CV and list 3 critical missing technical skills or certifications that prevent them from reaching a Senior level. Only output a comma-separated list of 3 skills.\n\nCV:\n{cv_text}"
-    )
-    critic_chain = critic_prompt | llm
+    print("Reviewing the CV...")
     
-    # ==========================================
-    # AGENT 2: The "Researcher" Agent
-    # Focuses on finding specific Coursera/Udemy/Kaggle courses to fix the gaps
-    # ==========================================
-    print("[Agent Workflow] -> Researcher Agent is finding corresponding courses...")
-    researcher_prompt = PromptTemplate.from_template(
-        "You are an Educational Researcher. Given these 3 missing skills: '{missing_skills}', recommend exactly one highly-rated course from Kaggle, Udemy, or Coursera for each skill. Output a short description of the courses."
-    )
-    researcher_chain = researcher_prompt | llm
-    
-    # ==========================================
-    # AGENT 3: The "Manager" Agent
-    # Synthesizes all information into the strict JSON schema for the frontend
-    # ==========================================
-    print("[Agent Workflow] -> Manager Agent is formatting the final JSON packet...")
+    # Create the prompt combined with instructions
     parser = JsonOutputParser(pydantic_object=SkillsAnalysisOutput)
-    manager_prompt = PromptTemplate(
-        template="""You are the Lead Career Strategist.
-        You have the original CV, the Critic's gap analysis, and the Researcher's course recommendations.
-        Combine all this into the final structured JSON response. Include the top skills you found in the CV, the missing skills with their matched courses, and 3 recommended job roles.
-        For each recommended job role, invent a highly realistic matching Company, Location (e.g. Remote, San Francisco), Salary Range (e.g. $140k - $160k), Job Type (e.g. Full-time, Contract), and provide a logo URL strictly using this format: https://api.dicebear.com/7.x/initials/svg?seed=[CompanyInitials].
+    prompt = PromptTemplate(
+        template="""You are an expert Career Strategist, Technical Screener, and Educational Researcher. Analyse the given CV and output the response matching the JSON schema.
+        
+        Follow these exact steps:
+        1. Identify the top 6-8 strongest skills from the CV.
+        2. Give an overall score from 0-100 based on market competitiveness.
+        3. Identify EXACTLY 3 critical missing technical skills or certifications that prevent them from reaching a Senior level in their field.
+        4. For EACH missing skill, recommend exactly one highly-rated course strictly from Kaggle, Udemy, or Coursera (include a realistic specific course name and realistic search URL).
+        5. Recommend exactly 3 top job roles. For each, invent a highly realistic matching Company, Location (e.g. Remote, San Francisco), Salary Range (e.g. $140k - $160k), Job Type (e.g. Full-time, Contract), and provide a logo URL strictly using this format: https://api.dicebear.com/7.x/initials/svg?seed=[CompanyInitials].
         
         CV:
         {cv_text}
         
-        Critic's Gaps:
-        {gaps}
-        
-        Researcher's Courses:
-        {courses}
-        
         {format_instructions}""",
-        input_variables=["cv_text", "gaps", "courses"],
+        input_variables=["cv_text"],
         partial_variables={"format_instructions": parser.get_format_instructions()},
     )
-    manager_chain = manager_prompt | llm | parser
+    
+    chain = prompt | llm | parser
 
-    # ==========================================
-    # ORCHESTRATE THE AGENT PIPELINE
-    # ==========================================
     try:
-        # We pass data sequentially between the autonomous agents
         cv_snippet = extracted_text[:8000]
         
-        # 1. Critic acts
-        gaps_result = await critic_chain.ainvoke({"cv_text": cv_snippet})
+        final_result = await chain.ainvoke({"cv_text": cv_snippet})
         
-        # 2. Researcher acts based on Critic
-        courses_result = await researcher_chain.ainvoke({"missing_skills": gaps_result.content})
-        
-        # 3. Manager synthesizes
-        final_result = await manager_chain.ainvoke({
-            "cv_text": cv_snippet,
-            "gaps": gaps_result.content,
-            "courses": courses_result.content
-        })
-        
-        print("[Agent Workflow] -> Pipeline completed successfully.")
+        print("Pipeline completed.")
         return final_result
         
     except Exception as e:
-        print(f"[Agent Workflow Error]: {e}")
-        # In case the pipeline fails (e.g., Gemini Quota), raise to main.py to trigger the seamless mock fallback
+        print(f"Error during analysis: {e}")
+        # Throw exception to fall back to the local NLP engine
         raise e
