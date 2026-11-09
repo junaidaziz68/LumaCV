@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
+import API_BASE_URL from '../config/api';
 
 const AuthScreen = ({ onLogin }) => {
     const [isLogin, setIsLogin] = useState(true);
@@ -22,7 +23,7 @@ const AuthScreen = ({ onLogin }) => {
                 formData.append('username', email);
                 formData.append('password', password);
 
-                const res = await fetch('http://localhost:8000/api/login', {
+                const res = await fetch(`${API_BASE_URL}/api/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: formData.toString()
@@ -36,7 +37,7 @@ const AuthScreen = ({ onLogin }) => {
                 token = data.access_token;
             } else {
                 if (!name) throw new Error("Name is required");
-                const res = await fetch('http://localhost:8000/api/register', {
+                const res = await fetch(`${API_BASE_URL}/api/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, email, password })
@@ -52,7 +53,7 @@ const AuthScreen = ({ onLogin }) => {
 
             localStorage.setItem('luma_token', token);
 
-            const meRes = await fetch('http://localhost:8000/api/me', {
+            const meRes = await fetch(`${API_BASE_URL}/api/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!meRes.ok) throw new Error("Failed to fetch profile");

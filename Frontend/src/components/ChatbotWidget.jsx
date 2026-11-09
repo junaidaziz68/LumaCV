@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MessageSquare, X, Send, Bot, User } from 'lucide-react';
+import API_BASE_URL from '../config/api';
 
 const ChatbotWidget = ({ missingSkills }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -27,7 +28,7 @@ const ChatbotWidget = ({ missingSkills }) => {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://localhost:8000/api/chat', {
+            const response = await fetch(`${API_BASE_URL}/api/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

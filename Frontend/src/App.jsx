@@ -17,6 +17,7 @@ import CoursesPage from './pages/CoursesPage';
 import TrackerPage from './pages/TrackerPage';
 import ProfilePage from './pages/ProfilePage';
 import AuthScreen from './components/AuthScreen';
+import API_BASE_URL from './config/api';
 
 function DashboardContent({ file, isAnalyzing, handleFileUpload, results }) {
 
@@ -78,7 +79,7 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem('luma_token');
     if (token) {
-      fetch('http://localhost:8000/api/me', {
+      fetch(`${API_BASE_URL}/api/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
         .then(res => {
@@ -87,7 +88,7 @@ function App() {
         })
         .then(data => {
           setUser(data);
-          return fetch('http://localhost:8000/api/dashboard', {
+          return fetch(`${API_BASE_URL}/api/dashboard`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
         })
@@ -132,7 +133,7 @@ function App() {
       formData.append('file', selectedFile);
 
       const token = localStorage.getItem('luma_token');
-      const response = await fetch("http://localhost:8000/api/analyze-cv", {
+      const response = await fetch(`${API_BASE_URL}/api/analyze-cv`, {
         method: "POST",
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
