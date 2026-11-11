@@ -1,0 +1,17 @@
+[build]
+  base = "Frontend"
+  command = "npm install --include=dev && npm run build"
+  publish = "dist"
+
+# Forward API calls to the FastAPI backend hosted on Render (avoids CORS issues)
+[[redirects]]
+  from = "/api/*"
+  to = "https://lumacv.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+# SPA fallback so client-side routes (react-router) don't 404 on refresh
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
