@@ -27,6 +27,12 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CV Analyzer API")
 
+origins = [
+    "http://localhost:3000",
+    "https://lumacv-897xsfpsc-junaidaziz1.vercel.app",
+]
+
+
 # Setup CORS for the React frontend
 app.add_middleware(
     CORSMiddleware,
@@ -34,7 +40,8 @@ app.add_middleware(
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
         "http://localhost:5174",
-        "http://127.0.0.1:5174"
+        "http://127.0.0.1:5174",
+        "https://lumacv.onrender.com"  # Added your production URL
     ],
     allow_credentials=True,
     allow_methods=["*"],

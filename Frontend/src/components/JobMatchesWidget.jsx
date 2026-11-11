@@ -6,7 +6,7 @@ const JobMatchesWidget = ({ matches }) => {
     return (
         <StatCard title="Job Matches for You" action={<button className="text-slate-400 hover:text-brand-blue text-sm transition-colors">View All Jobs &gt;</button>}>
             <div className="space-y-4">
-                {matches && matches.length > 0 ? matches.map((match, i) => (
+                {Array.isArray(matches) && matches.length > 0 ? matches.map((match, i) => (
                     <div key={i} className="flex items-center justify-between pb-3 border-b border-slate-50 last:border-0 last:pb-0">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-brand-light flex items-center justify-center text-brand-blue">
