@@ -26,28 +26,31 @@ load_dotenv()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CV Analyzer API")
+from fastapi.middleware.cors import CORSMiddleware
 
 origins = [
+    "https://lumacv.vercel.app",
+    "https://lumacv-nuwcjfl2z-junaidaziz1.vercel.app",
     "http://localhost:3000",
-    "https://lumacv-897xsfpsc-junaidaziz1.vercel.app",
+    "http://localhost:5173",
 ]
 
-
-# Setup CORS for the React frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "https://lumacv.onrender.com"  # Added your production URL
+        "https://lumacv.vercel.app",
+        "https://lumacv-nuwcjfl2z-junaidaziz1.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+@app.get("/version")
+def version():
+    return {"cors_fix": "v2"}
 class Recommendation(BaseModel):
     role: str
     match: int
